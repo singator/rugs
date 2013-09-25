@@ -186,7 +186,7 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}[label=current]
+\begin{frame}
   \frametitle{Mango Solutions}
   \begin{itemize}
    \item A UK based company, started in 2002.
@@ -208,13 +208,70 @@
 \end{frame}
 
 \section{Interesting concepts}
+\begin{frame}[fragile,label=current]
+  \frametitle{R version 3.0.0 - what's new?}
+  \begin{itemize}
+    \item Duncan Murdoch gave a talk on the latest version of R.
+    \item What does R x.y.z actually mean? \pause
+    \item Support for numeric indices $2^{31}$ and larger. So now
+    \begin{verbatim}
+    > x[2^31] <- y
+    \end{verbatim}
+    will work on 64-bit machines, extending the x-vector if necessary. \pause
+    \item Bounds checking when calling compiled code. \pause
+    \item Vignettes can now be written with engines other than Sweave. Any
+      engine that processes R code + documentation to create a latex file can 
+      be used, e.g. knitr. See this
+\href{http://cran.r-project.org/doc/manuals/R-exts.html#Non_002dSweave-vignettes}{page} 
+      in the Writing R Extensions section. \pause
+    \item What exactly has helped in the dramatic increase in R users? \pause
+    % framework for sharing code, repeated answers by Duncan.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[label=current]
+  \frametitle{BigR Data}
+  \begin{itemize}
+    \item Hadley Wickham gave a talk on handling bigger data in R
+    \item The full talk can be found here: \url{http://bit.ly/bigrdata2}
+    \item ``Visualisation reveals the unexpected but does not scale well; models
+      scale well, but they are so precise that they seldom reveal new things''
+    \item Who doesn't use at least one of reshape2, plyr or ggplot2?
+    \item Two new packages for handling big big data:
+      \begin{enumerate}
+        \item dplyr
+        \item bigvis
+      \end{enumerate}
+  \end{itemize}
+\end{frame}
+
 \begin{frame}
-  \frametitle{\texttt{R} version 3.0.0}
+  \frametitle{Naming conventions in R}
+  \begin{itemize}
+    \item fg
+  \end{itemize}
 \end{frame}
 
 \section{Interesting packages}
+\begin{frame}[label=current]
+  \frametitle{data.table Package}
+  \begin{itemize}
+    \item data.table can be thought of as providing an enhanced data frame.
+    \item When used correctly, it can be much faster than a data.frame
+    \item The main features are:
+      \begin{itemize}
+        \item Use of keys for indexing rows. 
+        \item Fast grouping
+        \item Fast time series joins.
+      \end{itemize}
+  \end{itemize}
+\end{frame}
 
 \section*{Summary}
+\begin{frame}
+-next year
+-conference url
+\end{frame}
 %\section{Motivation}
 %
 %\subsection{The Basic Problem That We Studied}
