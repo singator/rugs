@@ -1,6 +1,5 @@
-%\documentclass[draft]{beamer}
 \documentclass{beamer}
-\includeonlyframes{current}
+%\includeonlyframes{current}
 
 % This file is a solution template for:
 
@@ -246,14 +245,36 @@
 \end{frame}
 
 \begin{frame}
+  \frametitle{MCMC or INLA?}
+  \begin{itemize}
+    \item Havard Rue gave a talk on R-INLA
+    \item Steve Scott gave a talk on BOOM
+    % mention Google correlate
+    \item Both are methods for carrying out Bayesian inference.
+    \item Although the latter is more general, I am keen to learn about INLA.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
   \frametitle{Naming conventions in R}
   \begin{itemize}
-    \item fg
+    \item A humorous talk on the inconsistencies of R users!
+    \item Even base R does not one of the following consistently:
+      \begin{itemize}
+      \item lowerCamelCase
+      \item upperCamelCase
+      \item alllowercase
+      \item period.separated 
+      \item underscore\_separated
+      \end{itemize}
+    \item Read more about it
+\href{http://journal.r-project.org/archive/2012-2/RJournal_2012-2_Baaaath.pdf}
+{here}.
   \end{itemize}
 \end{frame}
 
 \section{Interesting packages}
-\begin{frame}[label=current]
+\begin{frame}
   \frametitle{data.table Package}
   \begin{itemize}
     \item data.table can be thought of as providing an enhanced data frame.
@@ -267,8 +288,24 @@
   \end{itemize}
 \end{frame}
 
+\begin{frame}
+  \frametitle{Must learn packages (from my p.o.v, of course}
+  \begin{itemize}
+    \item Shiny!
+    \item knitr (and markdown)
+    \item ??
+  \end{itemize}
+\end{frame}
+
 \section*{Summary}
 \begin{frame}
+More info:
+\begin{itemize}
+ \item URL for this year's conference: \url{http://www.edii.uclm.es/~useR-2013/}
+ \item URL for next year's conference: \url{http://user2014.stat.ucla.edu/}
+ \item TeX file for this presentation: On github at singator/rugs
+
+\end{itemize}
 -next year
 -conference url
 \end{frame}
