@@ -1,4 +1,6 @@
+%\documentclass[draft]{beamer}
 \documentclass{beamer}
+\includeonlyframes{current}
 
 % This file is a solution template for:
 
@@ -35,7 +37,7 @@
 \usepackage[latin1]{inputenc}
 % or whatever
 
-\usepackage{times}
+\usepackage{times, hyperref, graphicx}
 \usepackage[T1]{fontenc}
 % Or whatever. Note that the encoding and the font should match. If T1
 % does not look nice, try deleting the line with the fontenc.
@@ -134,10 +136,43 @@
 %   just say so once. Everybody will be happy with that.
 
 \section{About the conference}
+\begin{frame}[t]
+  \frametitle{useR! 2013}
+\begin{itemize}
+  \item Conference was held from July 10 - 12, 2013 in Albacete, Spain at
+    University of Castilla-La Mancha.
+\end{itemize}
+%URL is \url{http://www.edii.uclm.es/~useR-2013/}
+\begin{center}
+\only<1>{\includegraphics[scale=0.3]{figs/groupl.jpg}}
+\only<2>{\includegraphics[scale=0.3]{figs/export/1-IMG_0015}
+\hskip3pt
+\includegraphics[scale=0.3]{figs/export/1-IMG_0021}}
+\only<3>{\includegraphics[scale=0.3]{figs/export/1-IMG_0028}
+\hskip3pt
+\includegraphics[scale=0.3]{figs/export/1-IMG_0032}}
+\end{center}
+\begin{center}
+\only<3>{(Conference URL at the end of this presentation.)}
+\end{center}
+\end{frame}
 
 \section{Interesting companies}
+\begin{frame}[label=current]
+  \frametitle{Tibco Spotfire}
+  \begin{itemize}
+  \item dfgds
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Mango Solutions}
+\end{frame}
 
 \section{Interesting concepts}
+\begin{frame}
+  \frametitle{\texttt{R} version 3.0.0}
+\end{frame}
 
 \section{Interesting packages}
 
