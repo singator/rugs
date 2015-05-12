@@ -1,12 +1,11 @@
 #! /usr/bin/env R
 
 ###############################################################################
-# load library
 # if kernlab package is not installed
-#install.packages("kernlab")
+# install.packages("kernlab")
+
+# load library
 library(kernlab)
-
-
 
 # load the inbuilt dataset
 data(spam)
