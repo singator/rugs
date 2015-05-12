@@ -1,3 +1,5 @@
+#! /usr/bin/env R
+
 ###############################################################################
 # load library
 # if kernlab package is not installed
