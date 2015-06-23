@@ -1,0 +1,542 @@
+---
+title: "RUGS Data Mining with R (Workshop II) - Random Forests: Tutorial"
+author: "Toh Wei Zhong"
+date: "15th July 2015"
+output:
+  html_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE)
+```
+
+## Introduction
+
+As the name suggests, random forest models basically contain an ensemble of decision tree models, with each decision tree predicting the same response variable. The response may be categorical, in which case being a classification problem, or continuous / numerical, being a regression problem.
+
+In this short tutorial, we will go through the use of tree-based methods (decision tree, bagging model, and random forest) for both classification and regression problems. Each section of this tutorial corresponds to an individual R script that can be found in the GitHub repo at <https://github.com/tohweizhong/RUGS-RF.git>. This tutorial serves to complement the code walkthrough session in our workshop. For more details on these models, please refer to the slides. Alternatively, you can email me at <tohweizhong@u.nus.edu> or <tohweizhong@hotmail.com> if you have any questions.
+
+This tutorial is divided into two sections. We will first use tree-based methods for classification on the __spam__ dataset from the __kernlab__ package - the same dataset used in the previous RUGS workshop on support vector machines (SVM). Subsequently, we will apply these methods on a regression problem, with the __imports85__ dataset from the __randomForest__ package.
+
+## Tree-based methods for classification
+
+### Preparation
+
+Let's start by loading the spam dataset and doing some preparations:
+
+```{r c_prep1}
+# packages that we will need:
+#  @ kernlab:      for the spam dataset
+#  @ tree:         for decision tree construction
+#  @ randomForest: for bagging and RF
+#  @ beepr:        for a little beep
+#  @ pROC:         for plotting of ROC
+
+# code snippet to install and load multiple packages at once
+#pkgs <- c("kernlab","tree","randomForest","beepr","pROC")
+#sapply(pkgs,FUN=function(p){
+#        print(p)
+#        if(!require(p)) install.packages(p)
+#        require(p)
+#})
+
+# load required packages
+suppressWarnings(library(kernlab))
+suppressWarnings(library(tree))
+suppressWarnings(library(randomForest))
+suppressWarnings(library(beepr)) # try it! beep()
+suppressWarnings(library(pROC))
+
+# load dataset
+data(spam)
+
+# take a look
+str(spam)
+```
+
+In this example, we will attempt to predict whether an email is spam or nonspam. To do so, we will construct models on one subset of the data (training data), and use the constructed model on another disparate subset of the data (the testing data). This is known as cross validation.
+
+```{r c_prep2}
+# preparation for cross validation:
+# split the dataset into 2 halves,
+# 2300 samples for training and 2301 for testing
+num.samples <- nrow(spam) # 4,601
+num.train   <- round(num.samples/2) # 2,300
+num.test    <- num.samples - num.train # 2,301
+num.var     <- ncol(spam) # 58
+
+# set up the indices
+set.seed(150715)
+idx       <- sample(1:num.samples)
+train.idx <- idx[seq(num.train)]
+test.idx  <- setdiff(idx,train.idx)
+
+# subset the data
+spam.train <- spam[train.idx,]
+spam.test  <- spam[test.idx,]
+
+```
+
+Taking a quick glance at the __type__ variable:
+
+```{r c_prep3}
+table(spam.train$type)
+table(spam.test$type)
+```
+
+### Decision tree
+
+Now that we are done with the preparation, let's start by constructing a decision tree model, using the __tree__ package:
+
+```{r c_tree1}
+tree.mod <- tree(type ~ ., data = spam.train)
+```
+
+Here's how our model looks like:
+
+```{r c_tree2}
+plot(tree.mod)
+title("Decision tree")
+text(tree.mod, cex = 0.75)
+```
+
+The model may be overtly complicated. Typically, after constructing a decision tree model, we may want to prune the model, by collapsing certain edges, nodes and leaves together without much loss of performance. This is done by iteratively comparing the number of leaf nodes with the model's performance (by k-fold cross validation _within the training set_).
+
+```{r c_tree3}
+cv.prune <- cv.tree(tree.mod, FUN = prune.misclass)
+plot(cv.prune$size, cv.prune$dev, pch = 20, col = "red", type = "b",
+     main = "Decision tree: Cross validation to find optimal size of tree",
+     xlab = "Size of tree", ylab = "Misclassifications")
+```
+
+Having 9 leaf nodes may be good (maximising performance while minimising complexity).
+
+```{r c_tree4}
+best.tree.size <- 9
+
+# pruning (cost-complexity pruning)
+pruned.tree.mod <- prune.misclass(tree.mod, best = best.tree.size)
+
+# here's the new tree model
+plot(pruned.tree.mod)
+title(paste("Pruned decision tree (", best.tree.size, " leaf nodes)",sep = ""))
+text(pruned.tree.mod, cex = 0.75)
+```
+
+Now with our new model, let's make some predictions on the testing data.
+
+```{r c_tree5}
+tree.pred <- predict(pruned.tree.mod,
+                     subset(spam.test, select = -type), 
+                     type = "class")
+
+# confusion matrix
+# rows are the predicted classes
+# columns are the actual classes
+print(tree.pred.results <- table(tree.pred, spam.test$type))
+
+# What is the accuracy of our tree model?
+print(tree.accuracy <- (tree.pred.results[1,1] + tree.pred.results[2,2]) / sum(tree.pred.results))
+```
+
+Our decision tree model is able to predict spam vs. nonspam emails with about `r paste(formatC(100*tree.accuracy),"%",sep="")` accuracy. We will make comparisons of accuracies with other models later.
+
+### Bagging
+
+Next, we turn our attention to the bagging model. Recall that bagging, a.k.a. _bootstrap aggregating_, is the process of sampling (with replacement), samples from the training data. Each of these subsets are known as bags, and we construct individual decision tree models using each of these bags. Finally, to make a classification prediction, we use the majority vote from the ensemble of decision tree models.
+
+```{r c_bagging1}
+bg.mod<-randomForest(type ~ ., data = spam.train,
+                     mtry = num.var - 1, # try all variables at each split, except the response variable
+                     ntree = 300,
+                     proximity = TRUE,
+                     importance = TRUE)
+```
+
+In the bagging, and also the random forest model, there are often only two hyperparameters that we are interested in: __mtry__, which is the number of variables to try from for each tree and at each split, and __ntree__, the number of trees in the ensemble. Tuning the number of trees is relatively easy by looking at the out-of-bag (OOB) error estimate of the ensemble at each step of the way. For more details, refer to the slides. We set __proximity = TRUE__ and __importance = TRUE__, in order to get some form of visualization of the model, and the variable importances respectively.
+
+```{r c_bagging2}
+plot(bg.mod$err.rate[,1], type = "l", lwd = 3, col = "blue",
+     main = "Bagging: OOB estimate of error rate",
+     xlab = "Number of Trees", ylab = "OOB error rate")
+``` 
+
+Here, 300 trees seems more than sufficient. One advantage of bagging and random forest models is that they provide a way of doing feature or variable selection, by considering the importance of each variable in the model. For exact details on how these importance measures are defined, refer to the slides.
+
+```{r c_bagging3}
+varImpPlot(bg.mod,
+           main = "Bagging: Variable importance")
+```
+
+In addition, we can visualize the classification done by the model using a multidimensional plot on the proximity matrix. The green samples in the figure represent nonspams, while the red samples are spams.
+
+```{r c_bagging4}
+MDSplot(bg.mod,
+        fac = spam.train$type,
+        palette = c("green","red"),
+        main = "Bagging: MDS")
+```
+
+Finally, let's make some predictions on the testing data:
+
+```{r c_bagging5}
+bg.pred <- predict(bg.mod,
+                   subset(spam.test, select = -type), 
+                   type = "class")
+
+# confusion matrix
+# rows are the predicted classes
+# columns are the actual classes
+print(bg.pred.results <- table(bg.pred, spam.test$type))
+
+# what is the accuracy of our bagging model?
+print(bg.accuracy <- sum(diag((bg.pred.results))) / sum(bg.pred.results))
+```
+
+Our bagging model predicts whether an email is spam or not with about `r paste(formatC(100*bg.accuracy),"%",sep="")` accuracy.
+
+### Random Forest
+
+The only difference between the bagging model and random forest model is that the latter uses chooses only from a subset of variables to split on at each node of each tree. In other words, only the __mtry__ argument differs between bagging and random forest.
+
+```{r c_rf1}
+rf.mod <- randomForest(type ~ ., data = spam.train,
+                       mtry = floor(sqrt(num.var - 1)), # 7; only difference from bagging is here
+                       ntree = 300,
+                       proximity = TRUE,
+                       importance = TRUE)
+
+# Out-of-bag (OOB) error rate as a function of num. of trees:
+plot(rf.mod$err.rate[,1], type = "l", lwd = 3, col = "blue",
+     main = "Random forest: OOB estimate of error rate",
+     xlab = "Number of Trees", ylab = "OOB error rate")
+```
+
+Besides tuning the __ntree__ hyperparameter, we might also be interested in tuning the __mtry__ hyperparameter in random forest. The random forest model may be built using the __mtry__ value that minimises the OOB error.
+
+```{r c_rf2}
+tuneRF(subset(spam.train, select = -type),
+       spam.train$type,
+       ntreeTry = 100)
+title("Random forest: Tuning the mtry hyperparameter")
+```
+
+
+
+```{r c_rf3}
+# variable importance
+varImpPlot(rf.mod,
+           main = "Random forest: Variable importance")
+
+# multidimensional scaling plot
+# green samples are non-spam,
+# red samples are spam
+MDSplot(rf.mod,
+        fac = spam.train$type,
+        palette = c("green","red"),
+        main = "Random forest: MDS")
+
+# now, let's make some predictions
+rf.pred <- predict(rf.mod,
+                   subset(spam.test,select = -type), 
+                   type="class")
+
+# confusion matrix
+print(rf.pred.results <- table(rf.pred, spam.test$type))
+
+# Accuracy of our RF model:
+print(rf.accuracy <- sum(diag((rf.pred.results))) / sum(rf.pred.results))
+```
+
+Our random forest model predicts whether an email is spam or not with about `r paste(formatC(100*rf.accuracy),"%",sep="")` accuracy.
+
+### Visualization of performances
+
+Let's go ahead and make some comparisons on the performances of our model. For comparison sake, let's also construct a logistic regression model.
+
+```{r c_logistic1}
+log.mod <- glm(type ~ . , data = spam.train,
+             family = binomial(link = logit))
+
+# predictions
+log.pred.prob <- predict(log.mod,
+                         subset(spam.test, select = -type), 
+                         type = "response")
+log.pred.class <- factor(sapply(log.pred.prob,
+                                FUN = function(x){
+                                        if(x >= 0.5) return("spam")
+                                        else return("nonspam")
+                                }))
+
+# confusion matrix
+log.pred.results <- table(log.pred.class, spam.test$type)
+
+# Accuracy of logistic regression model:
+print(log.accuracy <- sum(diag((log.pred.results))) / sum(log.pred.results))
+```
+
+Now, let's compare the performances, considering first the model accuracies.
+
+```{r c_viz1}
+barplot(c(tree.accuracy,
+          bg.accuracy,
+          rf.accuracy,
+          log.accuracy),
+        main="Accuracies of various models",
+        names.arg=c("Tree","Bagging","RF", "Logistic"))
+
+```
+
+We can see here that the ensemble models (bagging and random forest) outperforms the single decision tree, and also the logistic regression model. It turns out here that the bagging and the random forest models have about the same classification performance. Understanding the rationale of _random subspace sampling_ (refer to slides) should allow us to appreciate the potential improvement of random forest over the bagging model.
+
+Finally, let's plot the ROC curves of the various models. Note that this cannot be done for decision tree models, because the ROC is only valid for models that give probabilistic output.
+
+```{r c_viz2}
+bg.pred.prob <- predict(bg.mod ,
+                        subset(spam.test, select = -type),
+                        type = "prob")
+
+rf.pred.prob <- predict(rf.mod ,
+                        subset(spam.test, select = -type),
+                        type = "prob")
+
+plot.roc(spam.test$type,
+         bg.pred.prob[,1], col = "blue",
+         lwd = 3, print.auc = TRUE, print.auc.y = 0.3,
+         main = "ROC-AUC of various models")
+
+plot.roc(spam.test$type,
+         rf.pred.prob[,1], col = "green",
+         lwd = 3, print.auc = TRUE, print.auc.y = 0.2,
+         add = TRUE)
+
+plot.roc(spam.test$type,
+         log.pred.prob, col = "red",
+         lwd = 3, print.auc = TRUE, print.auc.y = 0.1,
+         add = TRUE)
+
+legend(x = 0.6, y = 0.8, legend = c("Bagging",
+                                    "Random forest",
+                                    "Logistic regression"),
+       col = c("blue", "green", "red"), lwd = 1)
+
+```
+
+## Tree-based methods for regression
+
+In the following section, we will consider the use of tree-based methods for regression. The materials that follows are analogous to that above, if not the similar.
+
+### Preparation
+
+```{r r_prep1}
+library(tree)
+library(randomForest)
+
+data(imports85)
+imp <- imports85
+
+# The following data preprocessing steps on
+# the imports85 dataset are suggested by
+# the authors of the randomForest package
+# look at
+# > ?imports85
+imp <- imp[,-2]  # Too many NAs in normalizedLosses.
+imp <- imp[complete.cases(imp), ]
+# ## Drop empty levels for factors
+imp[] <- lapply(imp, function(x) if (is.factor(x)) x[, drop=TRUE] else x)
+
+# Also removing the numOfCylinders and fuelSystem
+# variables due to sparsity of data
+# to see this, run the following lines:
+# > table(imp$numOfCylinders)
+# > table(imp$fuelSystem)
+# This additional step is only necessary because we will be
+# making comparisons between the tree-based models
+# and linear regression, and linear regression cannot
+# handle sparse data well
+imp <- subset(imp, select = -c(numOfCylinders,fuelSystem))
+
+# Preparation for cross validation:
+# split the dataset into 2 halves,
+# 96 samples for training and 97 for testing
+num.samples <- nrow(imp) # 193
+num.train   <- round(num.samples / 2) # 96
+num.test    <- num.samples - num.train # 97
+num.var     <- ncol(imp) # 25
+
+# set up the indices
+set.seed(150715)
+idx       <- sample(1:num.samples)
+train.idx <- idx[seq(num.train)]
+test.idx  <- setdiff(idx,train.idx)
+
+# subset the data
+imp.train <- imp[train.idx,]
+imp.test  <- imp[test.idx,]
+
+str(imp.train)
+str(imp.test)
+
+# take a quick look
+hist(imp.train$price)
+hist(imp.test$price)
+
+```
+
+We will be predicting the price of imported automobiles in this example. While tree-based methods are scale-invariant with respect to predictor variables, this is not true for the response variable. Hence, let's take a log-transformation on __price__ here.
+
+```{r r_prep2}
+imp.train$price <- log(imp.train$price)
+imp.test$price <- log(imp.test$price)
+
+# take a look again
+hist(imp.train$price)
+hist(imp.test$price)
+```
+
+### Decision tree
+
+Done with the preparation, let's begin with decision trees.
+
+```{r r_tree1}
+# Construct decision tree model
+tree.mod <- tree(price ~ ., data = imp.train)
+
+# here's how the model looks like
+plot(tree.mod)
+title("Decision tree")
+text(tree.mod, cex = 0.75)
+
+# let's see if our decision tree requires pruning
+cv.prune <- cv.tree(tree.mod, FUN = prune.tree)
+plot(cv.prune$size, cv.prune$dev, pch = 20, col = "red", type = "b",
+     main = "Cross validation to find optimal size of tree",
+     xlab = "Size of tree", ylab = "Mean squared error")
+# looks fine
+
+# now let's make some predictions
+tree.pred <- predict(tree.mod,
+                     subset(imp.test,select = -price), 
+                     type = "vector")
+
+# Comparing our predictions with the test data:
+plot(tree.pred, imp.test$price, main = "Decision tree: Actual vs. predicted")
+abline(a = 0, b = 1) # A prediction with zero error will lie on the y = x line
+
+# What is the MSE of our model?
+print(tree.mse <- mean((tree.pred - imp.test$price) ** 2))
+```
+
+Our decision tree model predicts the price of imported automobiles with a mean squared error of `r round(tree.mse, digits = 4)`. As with the previous section, we will make comparsions on model performances later.
+
+### Bagging
+
+Next, bagging.
+
+```{r r_bagging1}
+bg.mod<-randomForest(price ~ ., data = imp.train,
+                     mtry = num.var - 1, # try all variables at each split, except the response variable
+                     ntree = 300,
+                     importance = TRUE)
+
+# Out-of-bag (OOB) error rate as a function of num. of trees
+# here, the error is the mean squared error,
+# not classification error
+plot(bg.mod$mse, type = "l", lwd = 3, col = "blue",
+     main = "Bagging: OOB estimate of error rate",
+     xlab = "Number of Trees", ylab = "OOB error rate")
+
+# variable importance
+varImpPlot(bg.mod,
+           main = "Bagging: Variable importance")
+
+# let's make some predictions
+bg.pred <- predict(bg.mod,
+                   subset(imp.test,select = -price))
+
+# Comparing our predictions with test data:
+plot(bg.pred,imp.test$price, main = "Bagging: Actual vs. predicted")
+abline(a = 0, b = 1)
+
+# MSE of bagged model
+print(bg.mse <- mean((bg.pred - imp.test$price) ** 2))
+```
+
+Our bagging model predicts the price of imported automobiles with a mean squared error of `r round(bg.mse, digits = 4)`.
+
+### Random forest
+
+Finally, the random forest model.
+
+```{r r_rf1}
+rf.mod<-randomForest(price ~ ., data = imp.train,
+                     mtry = floor((num.var - 1) / 3), # 7; only difference from bagging is here
+                     ntree = 300,
+                     importance = TRUE)
+
+# Out-of-bag (OOB) error rate as a function of num. of trees
+plot(rf.mod$mse, type = "l", lwd = 3, col = "blue",
+     main = "Random forest: OOB estimate of error rate",
+     xlab = "Number of Trees", ylab = "OOB error rate")
+
+# tuning the mtry hyperparameter:
+# model may be rebuilt if desired
+tuneRF(subset(imp.train, select = -price),
+       imp.train$price,
+       ntreetry = 100)
+title("Random forest: Tuning the mtry hyperparameter")
+
+
+# variable importance
+varImpPlot(rf.mod,
+           main = "Random forest: Variable importance")
+
+# let's make some predictions
+rf.pred <- predict(rf.mod,
+                   subset(imp.test, select = -price))
+
+# Comparing our predictions with test data:
+plot(rf.pred, imp.test$price, main = "Random forest: Actual vs. predicted")
+abline(a = 0, b = 1)
+
+# MSE of RF model
+print(rf.mse <- mean((rf.pred - imp.test$price) ** 2))
+```
+
+Our random forest model incurs a mean squared error of `r round(rf.mse, digits = 4)` for the prediction of imported automobile prices
+
+### Visualization of performances
+
+For comparison purposes, let's also construct a ordinary least squares (linear regression) model.
+
+```{r r_ols1}
+ols.mod <- lm(price ~ ., data = imp.train)
+
+# predictions
+ols.pred <- predict(ols.mod,
+                   subset(imp.test, select = -price))
+
+# comparisons with test data:
+plot(ols.pred, imp.test$price, main = "OLS: Actual vs. predicted")
+abline(a = 0, b = 1)
+
+# MSE
+print(ols.mse <- mean((ols.pred-imp.test$price) ** 2))
+```
+
+Now, let's compare their performances.
+
+```{r r_viz1}
+# Comparing MSEs of various models:
+barplot(c(tree.mse,
+          bg.mse,
+          rf.mse,
+          ols.mse),
+        main = "Mean squared errors of various models",
+        names.arg = c("Tree", "Bagging", "RF", "OLS"))
+```
+
+Our top performer here is the random forest model, followed by the bagging model.
+
+__END__
