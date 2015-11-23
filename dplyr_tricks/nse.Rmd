@@ -1,0 +1,93 @@
+---
+title: "Non-standard Evaluation"
+author: "Vik"
+date: "23 November 2015"
+output: 
+  ioslides_presentation: 
+    smaller: yes
+---
+
+## What does NSE refer to?
+
+```{r nse_0, echo=FALSE, message=FALSE}
+library(dplyr)
+```
+
+Consider the following dataset.
+```{r nse_1}
+head(mtcars)
+ls()
+```
+Notice that my global environment (or my workspace) is empty.
+
+## Examples of Non-Standard Evaluation
+Consider the following codes
+```{r nse_2}
+head( dplyr::filter(mtcars, hp <= 100), n=3)
+head( subset(mtcars, cyl == 8), n=3)
+```
+
+* Recall that our global workspace was empty. Where did R know to find the variables 
+`hp` and `cyl`?
+* Now let's write a similar function of our own.
+
+## Why Can't I do That?
+
+```{r nse_3}
+f <- function(col) {
+  dplyr::filter(mtcars, col <= 100)
+}
+# Neither of this will work:
+# f(hyp)
+# f("hyp")
+```
+
+* The problem is that the expression `col1 <= 100` is not being evaluated correctly.
+* We need to revert to a standard evaluation approach now and do the following:
+    * construct the expression we want.
+    * assist R in evaluating it.
+
+## Using SE Versions of dplyr verbs I
+```{r nse_4}
+f <- function(col, f_lim=100) {
+  filter_crit <- lazyeval::interp(~ var1 <= f_lim, var1=as.name(col))
+  filter_(mtcars, filter_crit)
+}
+head( f("hp", 100), n=2)
+head( f("mpg", 20.0), n=2)
+```
+
+## Using SE Versions of dplyr verbs II
+```{r nse_5}
+f <- function(col, f_mult=0.45) {
+  mutate_crit <- lazyeval::interp(~ var1 * f_mult, var1=as.name(col))
+  mutate_(mtcars, mutate_crit)
+}
+head( f("mpg", 1.61), n=2)
+head( f("wt", 0.45), n=2)
+```
+
+## Using SE Versions of dplyr verbs III
+```{r nse_6}
+f <- function(col, f_mult=0.45, new_col_name) {
+  mutate_crit <- lazyeval::interp(~ var1 * f_mult, var1=as.name(col))
+  mutate_(mtcars, .dots = setNames(list(mutate_crit), new_col_name))
+}
+head( f("mpg", 1.61, "kmpg"), n=2)
+```
+
+## Who Will Find This Most Useful?
+
+* People who need to use `dplyr` verbs within a function.
+* Package developers, whose code imports `dplyr`.
+
+## Helpful links:
+
+* [Hadley Wickham's page](http://adv-r.had.co.nz/Functional-programming.html) on NSE.
+* [How R searches and finds stuff](http://blog.obeautifulcode.com/R/How-R-Searches-And-Finds-Stuff/)
+* The dplyr vignette on NSE: 
+```{r eval=FALSE}
+library(dplyr)
+vignette("nse")
+```
+* [R bloggers page](http://www.r-bloggers.com/using-mutate-from-dplyr-inside-a-function-getting-around-non-standard-evaluation/) on NSE
