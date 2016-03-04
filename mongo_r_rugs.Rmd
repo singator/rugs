@@ -1,0 +1,163 @@
+---
+title: "MongoDB & R"
+author: "Vik & Gaurav"
+date: "16 March 2016"
+output: 
+  ioslides_presentation: 
+    smaller: yes
+    transition: faster
+    widescreen: yes
+---
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyjson)
+library(rjson)
+library(rmongodb)
+library(dplyr)
+dat3 <- readLines("dataset.json", n=3)
+dat3 <- as.tbl_json(dat3)
+```
+
+# The `tidyjson` package
+
+## JSON Document Structure
+
+An image of JSON structure here.
+
+## tidyjson Verbs
+
+- `tidyjson` works similarly to dplyr.
+- It encourages the use of the `%>%` operator to chain operations.
+- The main operations are the following:
+    - `json_types()`
+    - `json_lengths()`
+    - `gather_array()`
+    - `gather_keys()`
+    - `spread_values()`
+    - `append_values_X()`
+    - `enter_object()`
+- Please do refer to the vignette for more information:
+```{r tidyjson_1, eval=FALSE}
+vignette("introduction-to-tidyjson")
+```
+    
+## Restaurants Data
+
+* The example dataset that we shall use is from the MongoDB docs page. 
+* It contains information about the grading of several restaurants in NY.
+* The `dat3` contains the first three documents from this collection, in the format that `tidyjson` expects.
+
+```{r doc_str_1}
+dat3 %>%  json_types()
+dat3[1,] %>% gather_keys() %>% json_types()
+```
+
+## Restaurants Level 1
+
+- Now we know that at the highest level, we have to look further into `address`
+and `grades`.
+- What about the remaining fields?
+
+```{r doc_str_2a}
+dat3 %>% enter_object("borough") %>% append_values_string("boro")
+dat3 %>%  
+  spread_values(
+    name=jstring("name"),
+    borough=jstring("borough"),
+    cuisine=jstring("cuisine")
+  ) 
+```
+
+## Restaurants Level 2 (Address)
+
+```{r doc_str_3}
+dat3[1,] %>% enter_object("address") %>% gather_keys() %>% json_types()
+```
+
+```{r doc_str_4}
+dat3 %>% spread_values( 
+  name=jstring("name") 
+  )  %>% enter_object("address") %>% 
+  spread_values(
+    street=jstring('street'),
+    zip=jstring("zipcode")
+  )
+```
+
+## Restaurants Level 2 (Grades)
+
+```{r doc_str_6}
+dat3[1,] %>% 
+  enter_object("grades") %>% gather_array() %>% json_types()
+```
+
+## Restaurants Level 2 (Grades)
+
+```{r doc_str_5}
+dat3[1,] %>% 
+  enter_object("grades") %>% gather_array() %>% 
+  gather_keys() %>% json_types()
+```
+
+
+## Restaurants Document Structure
+
+An image of restaurants structure is given here. 
+
+    
+# R to MongoDB
+
+## Connecting to MongoDB
+
+As long as you have your MongoDB instance running, it is relatively 
+painless to connect from R:
+
+```{r connect_1}
+mongo <- mongo.create(host="127.0.0.1",db="test")
+mongo.is.connected(mongo)
+```
+
+This confirms the connection is up and working.
+
+- For this session, we are going to use the `restaurants` collection within the  
+`test` database.
+
+## Some Simple Commands (1)
+
+```{r connect_2}
+mongo.count(mongo, "test.restaurants")
+tmp <- mongo.find.one(mongo, "test.restaurants")
+class(tmp)
+```
+
+## Some Simple Commands (2)
+
+```{r connect_3}
+tmp <- mongo.bson.to.list(tmp)
+str(tmp, max.level=2)
+```
+
+## From MongoDB to `tidyjson`
+
+* There is a problem:
+    - `tidyjson` works with its own `tbl_json` class of objects.
+    - `rmongodb` works with its own `mongo.bson` class of objects.
+    
+* Neither package has a function to convert to/fro the other class.
+
+* We shall use the following workaround (Any better ideas??)
+    - `mongo.bson` -> R list -> JSON string -> `tbl_json`
+    - The conversion from R list to JSON string can be achieved using `toJSON()` 
+    from the `rjson` package.
+    
+## Conversion
+
+```{r connect_4}
+m2 <- mongo.find.all(mongo, "test.restaurants", limit=5)
+class(m2)
+length(m2)
+(m3 <- as.tbl_json(rjson::toJSON(m2)))
+```
+    
+  
+    
