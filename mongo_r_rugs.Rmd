@@ -18,6 +18,43 @@ dat3 <- readLines("dataset.json", n=3)
 dat3 <- as.tbl_json(dat3)
 ```
 
+# NoSQL Overview
+
+## Traditional RDBMS
+
+1. **Atomicity**: Everything in a transaction succeeds unless it is rolled
+back.
+2. **Consistency**: A transaction cannot leave the database in an 
+inconsistent state.
+3. **Isolation**: One transaction cannot interfere with another.
+4. **Durability**: A completed transaction persists, even after applications
+restart.
+
+## The NoSQL Approach
+
+1. **Basic availability**: Each request is guaranteed a response -- 
+successful or failed execution.
+2. **Soft state**: The state of the system may change over time, at times 
+without input.
+3. **Eventual consistency**: The database may be momentarily inconsistent 
+but will be consistent eventually.
+
+## Types of NoSQL Databases
+
+| Document/Key-Value | Column    | Graph
+|--------------------|-----------|------
+| MongoDB            | BigTable  | Neo4J
+| CouchDB            | Hadoop    | FlockDB
+| Redis              | Cassandra | 
+
+
+## Some Benefits of NoSQL
+
+- Schemaless data representation
+- How would you represent graphs in RDBMS?
+- Scalability
+- Column - oriented databases.
+
 # The `tidyjson` package
 
 ## JSON Document Structure
@@ -159,5 +196,14 @@ length(m2)
 (m3 <- as.tbl_json(rjson::toJSON(m2)))
 ```
     
+    
+# References
+
+## References
+
+1. Getting Started with NoSQL, *Gaurav Vaish*
+2. `rmongodb` vignette
+3. `tidyjson` vignette
   
+
     
