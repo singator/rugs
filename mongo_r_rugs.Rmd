@@ -197,6 +197,14 @@ length(m2)
 ```
     
     
+# Analysis 0: Grades
+
+## Restaurant Names and Grades
+
+Suppose that we wish to obtain a data frame consisting of all restaurants 
+and their grades. How could we do that?
+
+    
 # References
 
 ## References

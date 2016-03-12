@@ -1,0 +1,151 @@
+---
+title: "RUGS - NOSQL"
+author: "Gaurav Chaturvedi"
+date: "16/03/2016"
+output: ioslides_presentation
+---
+
+## R Support for Mongo 
+
+- Main packages - RMongo, rmongodb and mongolite (newest)
+
+Package | Notes
+---------|------------
+RMongo    |   SQL style connection and querying, JSON format queries 
+rmongodb | BSON / JSON format queries 
+mongolite | Released 2015.  
+
+
+- Packages are very comparable for basic querying / retrieving 
+- JSON style queryin format is common to all the packages
+- Monoglite is the latest and supposedly good at aggregate queries 
+
+## About the Data 
+
+```{r warning=FALSE, echo = FALSE, results='asis'}
+suppressPackageStartupMessages (library(rjson))
+suppressPackageStartupMessages(library(Hmisc))
+suppressPackageStartupMessages(library(knitr))
+j_dat <- "https://raw.githubusercontent.com/mongodb/docs-assets/primer-dataset/dataset.json"
+dat <- fromJSON(sprintf("[%s]", paste(readLines(j_dat), collapse=",")))
+```
+
+The restaurant data set 
+
+- Data has `r length(dat)` elements (restaurants) 
+
+- Size of data `r round(object.size(dat)/(1024*1024),1)` MB
+
+
+Would you expect this size ? 
+
+
+
+## Data Structure 
+
+Nested List Structure 
+```{r warning=FALSE, echo = FALSE}
+list.tree(dat[[1]], depth = 2)
+```
+Variable | Explanation
+---------|------------
+ADDRESS    |   `r names(dat[[1]]$address)`
+GRADE | `r names(dat[[1]]$grades[[1]])` 
+
+## How can I 'unlist' this to data frame (or data table) for analysis ?
+
+"do.call" Method
+```{r warning=FALSE, echo = TRUE}
+options(width=80)
+r1 <- tryCatch ( 
+  { do.call("rbind", lapply(dat,data.frame)) },
+  error = function(cond){
+  print(cond)
+  return(NULL)
+  }
+)
+```
+
+What causes this method to fail?
+
+- Uneven number of columns per restaurant. Due to "grades" data 
+
+## "Loop" through it method 
+
+```{r warning=FALSE, echo = TRUE}
+a=1
+nm <- vector(mode="character", length = length(dat))
+cusne <- vector(mode="character", length = length(dat))
+grds <- vector(mode="character", length = length(dat))
+while (a <= length(dat)){
+nm[a] <- dat[[a]]$name
+cusne[a] <- dat[[a]]$cuisine
+grd <- sapply(dat[[a]]$grades, function(y) y$grade)
+grds[a] <- paste0(grd, collapse =  "")
+a = a+1
+}
+r <- data.frame(name = nm, cuisine = cusne)
+#dbak <- r[r$cuisine == "Bakery", ]
+#dbak_ab <- dbak[!grepl("[^AB]", dbak$grades), ]
+
+```
+
+- Size of collapsed data frame with `r nrow(r)` is `r round(object.size(r)/(1024*1024),1)` MB
+
+Is this a scalable method? How can I avoid this ?
+
+## "lapply" method instad of looping
+
+```{r warning=FALSE, echo = TRUE}
+get_rest_dtls <- function(x){ 
+nm <- x$name
+cusne <- x$cuisine
+grds <- sapply(x$grades, function(y) y$grade)
+grades <- paste0(grds, collapse =  "")
+r <- data.frame(name = nm, cuisine = cusne, grades = grades)
+}
+# r1 <- lapply(dat,get_rest_dtls)
+# r2 <- data.frame(matrix(unlist(r1), nrow=length(r1)))
+# names(r2) <- names(r1[[1]])
+# 
+# dbak <- r2[r2$cuisine == "Bakery", ]
+#dbak_ab <- dbak[!grepl("[^AB]", dbak$grades), ]
+
+```
+
+- lapply is faster with larger/more complex datasets 
+- laaply is simpler to understand 
+
+## Best Practices - Analysing NOSQL with R 
+
+- Know the data structure
+- Conceptualize the target data set from your analysis requirement 
+- Try to aggregate at the nosql query level (if possible)
+- Use streaming query (if size of outcome too large)
+
+
+## Sample Analysis - Aggregation at nosql level  
+
+Analysis #1 - List the restaurants with Cuisine "bakery" 
+
+```{r warning=FALSE, echo = TRUE}
+
+
+# Connect to Mongo 
+# host <- "127.0.0.1:27017"
+# uname <- ""
+# pword <- ""
+# db <- "test"
+# mongo <- mongo.create(host=host , db=db, username = uname, password = pword)
+# collection <- "restaurants"
+# namespace <- paste(db, collection, sep=".")
+# 
+# cursor <- mongo.find.all(mongo, namespace, query='{"cuisine":"bakery"}')
+
+```
+
+Can you always aggregate at the server level?
+
+## Sample Analysis - No Aggregation
+
+Analysis #2 - List the restaurants with Cuisine "bakery" that never had a grade below "B"

@@ -1,0 +1,25 @@
+# simle query:
+
+# q1 <- mongo.bson.from.list(list(borough="Bronx", 
+#         cuisine="Bakery"))
+# mongo.find.all(mongo, "test.restaurants", q1)
+
+
+
+    buf <- mongo.bson.buffer.create()
+     mongo.bson.buffer.start.array(buf, "Fibonacci")
+     x <- 0
+     mongo.bson.buffer.append.int(buf, "0", x)
+     y <- 1
+     mongo.bson.buffer.append.int(buf, "1", y)
+     for (i in 2:8) {
+         z <- x + y
+         mongo.bson.buffer.append.int(buf, as.character(i), z)
+         x <- y
+         y <- z
+     }
+     mongo.bson.buffer.finish.object(buf)
+     b <- mongo.bson.from.buffer(buf)
+     
+     # the above produces a BSON object of the form:
+     # { "Fibonacci" : [ 0, 1, 1, 2, 3, 5, 8, 1
