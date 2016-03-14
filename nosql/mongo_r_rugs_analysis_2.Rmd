@@ -1,0 +1,53 @@
+---
+title: "MongoDB & R"
+author: "Vik & Gaurav"
+date: "16 March 2016"
+output: 
+  ioslides_presentation: 
+    smaller: yes
+    transition: faster
+    widescreen: yes
+---
+
+# Analysis 1: Above B
+
+## Good Restaurants
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyjson)
+library(rjson)
+library(rmongodb)
+library(dplyr)
+mongo <- mongo.create(host="127.0.0.1",db="test")
+mongo.is.connected(mongo)
+f2 <- list("name"=1L, "cuisine"=1L, "_id"=0L, "grades"=1L)
+out <- mongo.find.all(mongo, "test.restaurants", fields=f2)
+
+# convert to tidyjson class
+out.ch <- sapply(out, rjson::toJSON)
+out2 <- as.tbl_json(out.ch)
+out2 %>% spread_values(name=jstring("name")) %>% 
+  enter_object("grades") %>% gather_array() %>% 
+  enter_object("grade") %>% append_values_string("grade") -> out2a
+```
+
+Suppose that we wish to obtain a data frame consisting of all restaurants 
+that have never had a grade below B.
+
+The unique grades are 
+```{r unique_grades}
+unique(out2a$grade)
+```
+
+
+## References
+```{r mongo_out, echo=FALSE}
+mongo.destroy(mongo)
+```
+
+1. Getting Started with NoSQL, *Gaurav Vaish*
+2. `rmongodb` vignette
+3. `tidyjson` vignette
+  
+
+    
