@@ -310,7 +310,7 @@ glimpse(r2)
 
 ```{r fix_3}
 # extract only grades and name
-f2 <- list("name"=1L, "cuisine"=1L, "_id"=0L, "grades"=1L)
+f2 <- list("name"=1L, "cuisine"=1L, "_id"=1L, "grades"=1L)
 out <- mongo.find.all(mongo, "test.restaurants", fields=f2)
 
 # convert to tidyjson class
@@ -318,10 +318,13 @@ out.ch <- sapply(out, rjson::toJSON)
 out2 <- as.tbl_json(out.ch)
 
 # extract grades for each restaurant
-out2 %>% spread_values(name=jstring("name")) %>% 
+out2 %>% spread_values(
+  name=jstring("name"),
+  id=jstring("_id")
+  ) %>% 
   enter_object("grades") %>% gather_array() %>% 
   enter_object("grade") %>% append_values_string("grade") -> out2a
-head(out2a)
+head(dplyr::select(out2a, -id))
 ```
 
 # Analysis 1: Above B
@@ -345,15 +348,15 @@ levels(out2b$grade)
 
 # write a helper function
 id_poor <- function(tmp) {
-  data.frame(poor=any(tmp$grade > "B"))
+  data.frame(poor=any(tmp$grade > "B"), name=tmp$name[1], stringsAsFactors = FALSE)
 }
-out2b %>% group_by(name) %>% do(id_poor(.)) -> poor_good
+out2b %>% group_by(id) %>% do(id_poor(.)) -> poor_good
 ```
 
 ## Double Check Results
 ```{r analysis_2a}
 head(poor_good, n=3)
-dplyr::filter(out2b, name == "#1 Sabor Latino Restaurant")
+dplyr::filter(out2b, name == "Tov Kosher Kitchen")
 ```
     
 # Analysis 2: Which deteriorated?
@@ -369,15 +372,16 @@ got worse?
 # write a helper function
 got_worse <- function(tmp) {
   gr <- tmp$grade
-  data.frame(worsened = any(tmp$grade[-1] > tmp$grade[1]))
-}
-out2b %>% group_by(name) %>% filter(n() >= 2) %>% do(got_worse(.)) -> worsened
+  data.frame(worsened = any(tmp$grade[-1] > tmp$grade[1]), 
+             name=tmp$name[1], stringsAsFactors = FALSE) 
+  } 
+out2b %>% group_by(id) %>% filter(n() >= 2) %>% do(got_worse(.)) -> worsened
 head(worsened)
 ```
 
 ## Double Check Results
 ```{r analysis_3a}
-dplyr::filter(out2b, name == "'Wichcraft")
+dplyr::filter(out2b, name == "Morris Park Bake Shop")
 ```
 
 # Streaming Data
